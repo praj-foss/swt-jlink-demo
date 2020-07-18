@@ -16,15 +16,17 @@ application {
     mainClassName = "in.praj.demo.SwtApp"
 }
 
+val swtBundleId = "org.eclipse.swt"
+val moduleDir   = buildDir.resolve("modules")
+val imageDir    = buildDir.resolve("runtimeImage")
+
 eclipseMavenCentral {
     // Build version of the Eclipse bundle
     release("4.16.0") {
-        implementationNative("org.eclipse.swt")
+        implementationNative(swtBundleId)
         useNativesForRunningPlatform()
     }
 }
-
-val moduleDir = buildDir.resolve("modules")
 
 moditect {
     // Create module for current project
@@ -35,7 +37,7 @@ moditect {
             mainClass = application.mainClassName
             moduleInfo {
                 name     = "core"
-                requires = "org.eclipse.swt"
+                requires = swtBundleId
                 exports  = "in.praj.demo"
             }
         }
@@ -47,22 +49,22 @@ moditect {
         overwriteExistingFiles.set(true)
         modules {
             val swtDep = configurations["implementation"].dependencies
-                    .first { it.name.contains("org.eclipse.swt.") }
+                    .first { it.name.contains("$swtBundleId.") }
             module {
                 artifact(swtDep)
                 moduleInfo {
-                    name    = "org.eclipse.swt"
+                    name    = swtBundleId
                     exports = "*"
                 }
             }
         }
     }
 
-    // Configure JLink for custom image
+    // Configure custom runtime image
     createRuntimeImage {
         modulePath.set(listOf(moduleDir))
         modules.set(listOf("core"))
-        outputDirectory.set(buildDir.resolve("jlinkImage"))
+        outputDirectory.set(imageDir)
         ignoreSigningInformation.set(true)
 
         launcher {
@@ -74,4 +76,12 @@ moditect {
         noHeaderFiles.set(true)
         compression.set(2)
     }
+}
+
+// Compress custom runtime image into zip
+tasks.register<Zip>("imageZip") {
+    dependsOn("createRuntimeImage")
+    from(fileTree(imageDir))
+    destinationDirectory.set(buildDir)
+    archiveFileName.set("demo.zip")
 }
